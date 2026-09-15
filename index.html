@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ETA 관리 & 정시성 전략 콘솔</title>
 <style>
   :root {
@@ -108,12 +109,15 @@
   .status-badge.critical { background: color-mix(in srgb, var(--critical) 18%, transparent); color: var(--critical); }
 
   /* ---------- voyage simulation tab ---------- */
+  .sim-layout { display: grid; grid-template-columns: 1fr 300px; gap: 14px; }
+  .sim-side { display: flex; flex-direction: column; gap: 14px; }
+  .dest-toggle { display: flex; gap: 8px; }
   .dest-btn {
     flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2);
     color: var(--text-secondary); font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
   .dest-btn[data-active="true"] { border-color: var(--accent); color: var(--text-primary); background: var(--surface-1); }
-  svg.simchart { width: 100%; height: auto; display: block; border-radius: 10px; }
+  svg.simchart { width: 100%; height: auto; display: block; border-radius: 10px; touch-action: none; }
   .sim-tooltip {
     position: absolute; pointer-events: none; background: #000c; color: #fff; font-size: 11px;
     padding: 4px 8px; border-radius: 6px; transform: translate(-50%, -130%); white-space: nowrap;
@@ -137,10 +141,16 @@
     background: color-mix(in srgb, #ff8c1a 16%, transparent); color: var(--text-primary); border: 1px solid color-mix(in srgb, #ff8c1a 40%, transparent);
   }
   .sim-save-banner b { color: #ff8c1a; font-size: 14px; }
-  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin: 6px 0; cursor: pointer; user-select: none; }
-  .checkbox-row input { accent-color: var(--accent); }
-  .swatch-line { display: inline-block; width: 18px; height: 0; border-top: 3px solid; }
+  .switch-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin: 6px 0; cursor: pointer; user-select: none; }
+  .switch-row-label { flex: 1; }
+  .switch { display: inline-flex; align-items: center; position: relative; flex: none; }
+  .switch input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .switch-track { display: none; }
+  .swatch-line { display: inline-block; width: 18px; height: 0; border-top: 3px solid; flex: none; }
   .map-wrap { position: relative; }
+  /* sim-sheet: plain pass-through container on desktop, becomes a fixed bottom sheet on mobile */
+  .sim-sheet, .sim-sheet-body { display: contents; }
+  .sim-sheet-handle { display: none; }
 
   footer { font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0; }
 
@@ -178,6 +188,108 @@
     .grid2 { gap: 10px; }
 
     .table-wrap table { font-size: 11px; }
+  }
+
+  /* ---------- mobile app-shell: voyage-sim map screen (map + overlay controls, bottom sheet) ---------- */
+  @media (max-width: 768px) {
+    :root {
+      --mobile-topbar-h: 44px;
+      --mobile-desttab-h: 52px;
+      --mobile-ctrlbar-h: 64px;
+      --mobile-animbar-h: 40px;
+      --sheet-handle-h: 52px;
+    }
+
+    body.map-active .crumb, body.map-active header, body.map-active footer { display: none; }
+    body.map-active .wrap { gap: 0; }
+
+    .tabs {
+      position: sticky; top: 0; z-index: 60; background: var(--page);
+      padding-top: env(safe-area-inset-top);
+    }
+    .tab-btn { min-height: 44px; }
+
+    #simMapWrap {
+      position: fixed; left: 0; right: 0; z-index: 5;
+      top: calc(var(--mobile-topbar-h) + var(--mobile-desttab-h) + env(safe-area-inset-top));
+      bottom: calc(var(--mobile-ctrlbar-h) + var(--mobile-animbar-h) + var(--sheet-handle-h) + env(safe-area-inset-bottom));
+      margin: 0; border-radius: 0; padding: 0; border: none; overflow: hidden;
+    }
+    #simMapWrap > h2, #simMapWrap > .desc { display: none; }
+    #simMapWrap svg.simchart { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; touch-action: none; }
+
+    #simDestCard {
+      position: fixed; left: 0; right: 0; z-index: 25;
+      top: calc(var(--mobile-topbar-h) + env(safe-area-inset-top));
+      height: var(--mobile-desttab-h); margin: 0; border-radius: 0; padding: 8px 10px;
+      border-left: none; border-right: none; border-top: none;
+      display: flex; align-items: center;
+    }
+    #simDestCard h2 { display: none; }
+    #simDestCard .dest-toggle { width: 100%; }
+    #simDestCard .dest-btn { min-height: 44px; font-size: 15px; }
+
+    #simTimeline {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+      height: var(--mobile-ctrlbar-h); margin: 0; gap: 8px; flex-wrap: nowrap;
+      background: var(--surface-1); border-top: 1px solid var(--border);
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    }
+    #simTimeline button { min-width: 44px; min-height: 44px; font-size: 14px; }
+    #simTimeline .sim-progress-label { font-size: 13px; min-width: 0; flex: 1; }
+
+    #simAnimSelect {
+      position: fixed; left: 0; right: 0; z-index: 39;
+      bottom: calc(var(--mobile-ctrlbar-h) + env(safe-area-inset-bottom));
+      height: var(--mobile-animbar-h); margin: 0; padding: 4px 12px;
+      background: var(--surface-2); border-top: 1px solid var(--border);
+    }
+    #simAnimSelect button { min-height: 32px; font-size: 13px; }
+
+    .sim-tooltip { font-size: 14px; padding: 6px 10px; }
+
+    .sim-sheet, .sim-sheet-body { display: block; }
+    .sim-sheet {
+      position: fixed; left: 0; right: 0; z-index: 45;
+      bottom: calc(var(--mobile-ctrlbar-h) + var(--mobile-animbar-h) + env(safe-area-inset-bottom));
+      background: var(--surface-1); border-top: 1px solid var(--border);
+      border-radius: 16px 16px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.4);
+      max-height: var(--sheet-handle-h); overflow: hidden;
+      transition: max-height .25s ease;
+    }
+    .sim-sheet.open { max-height: 65dvh; }
+    .sim-sheet-handle {
+      display: flex; align-items: center; justify-content: space-between; width: 100%;
+      min-height: var(--sheet-handle-h); padding: 0 18px; background: none; border: none;
+      color: var(--text-primary); font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;
+    }
+    .sim-sheet-caret { color: var(--text-muted); transition: transform .25s; font-size: 12px; }
+    .sim-sheet.open .sim-sheet-caret { transform: rotate(180deg); }
+    .sim-sheet-body {
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      max-height: calc(65dvh - var(--sheet-handle-h));
+      padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    }
+    .sim-sheet-card { background: none; border: none; border-radius: 0; padding: 14px 0; border-top: 1px solid var(--border); }
+    .sim-sheet-card:first-child { border-top: none; padding-top: 0; }
+    .sim-sheet-card h2 { font-size: 15px; }
+
+    .switch-row { font-size: 15px; min-height: 44px; gap: 10px; }
+    .switch { width: 48px; height: 28px; }
+    .switch input[type=checkbox] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; z-index: 2; }
+    .switch-track { display: block; position: absolute; inset: 0; background: var(--grid); border-radius: 999px; transition: background .15s; pointer-events: none; }
+    .switch-track::before {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+    .switch input:checked + .switch-track { background: var(--accent); }
+    .switch input:checked + .switch-track::before { transform: translateX(20px); }
+
+    .sim-stat-grid { font-size: 14px; }
+    .sim-stat-cell .val { font-size: 20px; }
+    .sim-stat-cell .lbl { font-size: 12px; }
+    .sim-save-banner { font-size: 14px; }
+    .sim-save-banner b { font-size: 18px; }
   }
 </style>
 
@@ -226,6 +338,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => { active = btn.dataset.key; renderAll(); });
     });
+    document.body.classList.toggle("map-active", active === "map");
   }
 
   // ---------- shared mini line-chart builder (SPC-capable) ----------
@@ -314,6 +427,64 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   let simPlaying = false, simRafId = null, simStartTime = null;
   const SIM_ANIM_DURATION_MS = 30000;
   let simProgressFrac = 0;
+  let simLastProj = null;
+  let simZoom = { scale: 1, tx: 0, ty: 0 };
+  const simActivePointers = new Map();
+  let simPanStart = null, simPinchStartDist = null, simPinchStartScale = 1;
+
+  function simClampScale(s) { return Math.min(6, Math.max(1, s)); }
+
+  function simResetZoom() { simZoom = { scale: 1, tx: 0, ty: 0 }; }
+
+  function simWireZoomPan() {
+    const svg = document.getElementById("simMapSvg");
+    if (!svg || svg.dataset.zoomWired) return;
+    svg.dataset.zoomWired = "1";
+
+    svg.addEventListener("pointerdown", (e) => {
+      svg.setPointerCapture(e.pointerId);
+      simActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (simActivePointers.size === 1) {
+        simPanStart = { x: e.clientX, y: e.clientY, tx: simZoom.tx, ty: simZoom.ty };
+      } else if (simActivePointers.size === 2) {
+        const pts = Array.from(simActivePointers.values());
+        simPinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        simPinchStartScale = simZoom.scale;
+        simPanStart = null;
+      }
+    });
+    svg.addEventListener("pointermove", (e) => {
+      if (!simActivePointers.has(e.pointerId)) return;
+      simActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!simLastProj) return;
+      const rect = svg.getBoundingClientRect();
+      if (simActivePointers.size === 1 && simPanStart) {
+        const dx = (e.clientX - simPanStart.x) / rect.width * simLastProj.W;
+        const dy = (e.clientY - simPanStart.y) / rect.height * simLastProj.H;
+        simZoom.tx = simPanStart.tx + dx;
+        simZoom.ty = simPanStart.ty + dy;
+        simRenderMap();
+      } else if (simActivePointers.size === 2 && simPinchStartDist) {
+        const pts = Array.from(simActivePointers.values());
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        simZoom.scale = simClampScale(simPinchStartScale * (dist / simPinchStartDist));
+        simRenderMap();
+      }
+    });
+    const endPointer = (e) => {
+      simActivePointers.delete(e.pointerId);
+      if (simActivePointers.size < 2) simPinchStartDist = null;
+      if (simActivePointers.size < 1) simPanStart = null;
+    };
+    svg.addEventListener("pointerup", endPointer);
+    svg.addEventListener("pointercancel", endPointer);
+    svg.addEventListener("pointerleave", endPointer);
+    svg.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      simZoom.scale = simClampScale(simZoom.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+      simRenderMap();
+    }, { passive: false });
+  }
 
   function simUnwrapLon(lon, eastbound) { return (eastbound && lon < 0) ? lon + 360 : lon; }
 
@@ -384,8 +555,10 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const proj = simProjFor(simActiveDest);
     const mapEl = document.getElementById("simMapSvg");
     if (!mapEl) return;
+    simLastProj = proj;
     mapEl.setAttribute("viewBox", `0 0 ${proj.W} ${proj.H}`);
-    let svg = `<rect x="0" y="0" width="${proj.W}" height="${proj.H}" fill="var(--page)" rx="10"/>`;
+    const bg = `<rect x="0" y="0" width="${proj.W}" height="${proj.H}" fill="var(--page)" rx="10"/>`;
+    let svg = "";
 
     for (let lon = -180; lon <= 360; lon += 20) {
       if (lon < proj.lonMin || lon > proj.lonMax) continue;
@@ -449,7 +622,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
       </g>`;
     }
 
-    mapEl.innerHTML = svg;
+    mapEl.innerHTML = bg + `<g id="simZoomG" transform="translate(${simZoom.tx},${simZoom.ty}) scale(${simZoom.scale})">` + svg + `</g>`;
     const tip = document.getElementById("simTooltip");
     mapEl.querySelectorAll(".sim-wp").forEach(el => {
       el.addEventListener("mouseenter", () => { tip.textContent = el.dataset.name; tip.style.opacity = 1; });
@@ -472,6 +645,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         simAnimKey = SIM_DEST_GROUPS[simActiveDest].direct;
         simProgressFrac = 0; simPlaying = false;
         cancelAnimationFrame(simRafId);
+        simResetZoom();
         simRenderAll();
       });
     });
@@ -508,6 +682,8 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const saveDays = Math.round((u.eta_days_20kn - d.eta_days_20kn) * 10) / 10;
     document.getElementById("simSaveBanner").innerHTML =
       `운하 경유 시 약 <b>${saveKm.toLocaleString()}km (약 ${saveDays}일)</b> 단축 — 우회 대비 ${Math.round((1 - d.total_nm / u.total_nm) * 100)}% 짧은 거리`;
+    const peek = document.getElementById("simSheetPeek");
+    if (peek) peek.textContent = `운하 경유 시 약 ${saveDays}일 단축 · 거리·소요시간 비교`;
   }
 
   function simUpdateProgressLabel() {
@@ -539,13 +715,13 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
 
   function renderVoyageSim() {
     return `
-      <div class="layout" style="display:grid; grid-template-columns:1fr 300px; gap:14px;">
-        <div class="card map-wrap">
+      <div class="sim-layout">
+        <div class="card map-wrap" id="simMapWrap">
           <h2 id="simMapTitle">운하 경유 vs 우회 비교</h2>
           <div class="desc">부산 출발 기준, 운하(수에즈/파나마) 경유 단축 루트와 희망봉·마젤란 해협 경유 우회 루트를 실좌표 기반으로 동시에 표시하고 실거리 비례 속도로 재생합니다.</div>
           <svg id="simMapSvg" class="simchart" xmlns="http://www.w3.org/2000/svg"></svg>
           <div class="sim-tooltip" id="simTooltip"></div>
-          <div class="timeline">
+          <div class="timeline" id="simTimeline">
             <button id="simPlayBtn">▶ 재생</button>
             <button id="simPauseBtn">일시정지</button>
             <button id="simResetBtn">처음부터</button>
@@ -554,20 +730,36 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
           </div>
           <div class="sim-anim-select" id="simAnimSelect"></div>
         </div>
-        <div style="display:flex; flex-direction:column; gap:14px;">
-          <div class="card">
+        <div class="sim-side">
+          <div class="card" id="simDestCard">
             <h2>목적지</h2>
-            <div class="dest-toggle" id="simDestToggle" style="display:flex; gap:8px;"></div>
+            <div class="dest-toggle" id="simDestToggle"></div>
           </div>
-          <div class="card">
-            <h2>표시 항로</h2>
-            <label class="checkbox-row"><input type="checkbox" id="simChkDirect" checked/><span class="swatch-line" style="border-color:#ff8c1a"></span>단축 루트 (운하 경유)</label>
-            <label class="checkbox-row"><input type="checkbox" id="simChkDetour" checked/><span class="swatch-line" style="border-color:#8a94a6; border-top-style:dashed;"></span>우회 루트</label>
-          </div>
-          <div class="card">
-            <h2>거리 · 소요시간 비교 (20노트 기준)</h2>
-            <div class="sim-stat-grid" id="simStatGrid"></div>
-            <div class="sim-save-banner" id="simSaveBanner"></div>
+          <div class="sim-sheet" id="simSheet">
+            <button type="button" class="sim-sheet-handle" id="simSheetHandle">
+              <span id="simSheetPeek">거리 · 소요시간 비교</span>
+              <span class="sim-sheet-caret">▲</span>
+            </button>
+            <div class="sim-sheet-body">
+              <div class="card sim-sheet-card">
+                <h2>표시 항로</h2>
+                <label class="switch-row">
+                  <span class="swatch-line" style="border-color:#ff8c1a"></span>
+                  <span class="switch-row-label">단축 루트 (운하 경유)</span>
+                  <span class="switch"><input type="checkbox" id="simChkDirect" checked/><span class="switch-track"></span></span>
+                </label>
+                <label class="switch-row">
+                  <span class="swatch-line" style="border-color:#8a94a6; border-top-style:dashed;"></span>
+                  <span class="switch-row-label">우회 루트</span>
+                  <span class="switch"><input type="checkbox" id="simChkDetour" checked/><span class="switch-track"></span></span>
+                </label>
+              </div>
+              <div class="card sim-sheet-card">
+                <h2>거리 · 소요시간 비교 (20노트 기준)</h2>
+                <div class="sim-stat-grid" id="simStatGrid"></div>
+                <div class="sim-save-banner" id="simSaveBanner"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -595,9 +787,18 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     document.getElementById("simResetBtn").addEventListener("click", () => {
       simPlaying = false; simStartTime = null; simProgressFrac = 0;
       cancelAnimationFrame(simRafId);
+      simResetZoom();
       simUpdateProgressLabel();
       simRenderMap();
     });
+
+    const sheetHandle = document.getElementById("simSheetHandle");
+    if (sheetHandle) {
+      sheetHandle.addEventListener("click", () => {
+        document.getElementById("simSheet").classList.toggle("open");
+      });
+    }
+    simWireZoomPan();
 
     simRenderAll();
   }
