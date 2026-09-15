@@ -496,6 +496,22 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
 
   function simResetZoom() { simZoom = { scale: 1, tx: 0, ty: 0 }; }
 
+  // zoom so that the viewBox point (svgX, svgY) -- the pinch midpoint / cursor position, already
+  // converted from screen px to the map's internal 900x480 units -- stays visually under the
+  // fingers/cursor, instead of the zoom always anchoring at the content's local (0,0) origin
+  // (which made pinch/scroll-zoom always "zoom into the same fixed corner" regardless of where
+  // the user actually touched).
+  function simZoomAt(svgX, svgY, newScale) {
+    const oldScale = simZoom.scale;
+    newScale = simClampScale(newScale);
+    const localX = (svgX - simZoom.tx) / oldScale;
+    const localY = (svgY - simZoom.ty) / oldScale;
+    simZoom.scale = newScale;
+    simZoom.tx = svgX - localX * newScale;
+    simZoom.ty = svgY - localY * newScale;
+    simClampPan();
+  }
+
   function simWireZoomPan() {
     const svg = document.getElementById("simMapSvg");
     if (!svg || svg.dataset.zoomWired) return;
@@ -528,8 +544,10 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
       } else if (simActivePointers.size === 2 && simPinchStartDist) {
         const pts = Array.from(simActivePointers.values());
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-        simZoom.scale = simClampScale(simPinchStartScale * (dist / simPinchStartDist));
-        simClampPan();
+        const midX = (pts[0].x + pts[1].x) / 2, midY = (pts[0].y + pts[1].y) / 2;
+        const svgX = (midX - rect.left) / rect.width * simLastProj.W;
+        const svgY = (midY - rect.top) / rect.height * simLastProj.H;
+        simZoomAt(svgX, svgY, simPinchStartScale * (dist / simPinchStartDist));
         simRenderMap();
       }
     });
@@ -543,8 +561,10 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     svg.addEventListener("pointerleave", endPointer);
     svg.addEventListener("wheel", (e) => {
       e.preventDefault();
-      simZoom.scale = simClampScale(simZoom.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
-      simClampPan();
+      const rect = svg.getBoundingClientRect();
+      const svgX = (e.clientX - rect.left) / rect.width * simLastProj.W;
+      const svgY = (e.clientY - rect.top) / rect.height * simLastProj.H;
+      simZoomAt(svgX, svgY, simZoom.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
       simRenderMap();
     }, { passive: false });
   }
