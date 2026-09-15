@@ -156,6 +156,12 @@
   .switch-track { display: none; }
   .swatch-line { display: inline-block; width: 18px; height: 0; border-top: 3px solid; flex: none; }
   .map-wrap { position: relative; }
+  .sim-legend {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 10px; color: var(--text-muted);
+    margin-top: 6px; pointer-events: none;
+  }
+  .sim-legend span { display: inline-flex; align-items: center; white-space: nowrap; }
+  .sim-legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; flex: none; }
   /* sim-sheet: plain pass-through container on desktop, becomes a fixed bottom sheet on mobile */
   .sim-sheet, .sim-sheet-body { display: contents; }
   .sim-sheet-handle { display: none; }
@@ -223,6 +229,11 @@
       margin: 0; border-radius: 0; padding: 0; border: none; overflow: hidden;
     }
     #simMapWrap > h2, #simMapWrap > .desc { display: none; }
+    #simMapWrap .sim-legend {
+      position: absolute; left: 10px; bottom: 10px; z-index: 4; margin: 0;
+      background: rgba(0,0,0,0.55); padding: 5px 9px; border-radius: 8px; color: #fff;
+      max-width: calc(100% - 20px);
+    }
     #simMapWrap svg.simchart { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; touch-action: none; }
 
     #simDestCard {
@@ -611,8 +622,11 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         if (!p.name) return;
         const [x, y] = proj.p(p.lon, p.lat);
         const isEndpoint = p.name.includes("출발") || p.name.includes("목적지");
-        svg += `<circle cx="${x}" cy="${y}" r="${isEndpoint ? 4.5 : 3}" fill="${isEndpoint ? '#fff' : 'var(--accent)'}" stroke="#000" stroke-width="0.8" class="sim-wp" data-name="${p.name}"/>`;
-        if (isEndpoint) svg += `<text x="${x + 7}" y="${y + 4}" font-size="11" font-weight="700" fill="#fff">${p.name.replace(/ \(.*\)/, "")}</text>`;
+        const isCanal = p.name.includes("운하");
+        const isMajor = isEndpoint || isCanal;
+        const fill = isEndpoint ? "#fff" : isCanal ? "#ff8c1a" : "var(--accent)";
+        svg += `<circle cx="${x}" cy="${y}" r="${isMajor ? 4.5 : 3}" fill="${fill}" stroke="#000" stroke-width="0.8" class="sim-wp" data-name="${p.name}"/>`;
+        if (isMajor) svg += `<text x="${x + 7}" y="${y + 4}" font-size="11" font-weight="700" fill="${isCanal ? '#ff8c1a' : '#fff'}">${p.name.replace(/ \(.*\)/, "")}</text>`;
       });
     });
 
@@ -641,7 +655,24 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         tip.style.top = (e.clientY - rect.top) + "px";
       });
       el.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
+      // tap support (touch devices have no hover): toggle the tooltip on tap
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const rect = mapEl.getBoundingClientRect();
+        const showing = tip.style.opacity === "1" && tip.dataset.activeWp === el.dataset.name;
+        tip.dataset.activeWp = el.dataset.name;
+        tip.textContent = el.dataset.name;
+        tip.style.left = (e.clientX - rect.left) + "px";
+        tip.style.top = (e.clientY - rect.top) + "px";
+        tip.style.opacity = showing ? 0 : 1;
+      });
     });
+    if (!mapEl.dataset.tapDismissWired) {
+      mapEl.dataset.tapDismissWired = "1";
+      mapEl.addEventListener("click", (e) => {
+        if (!e.target.closest(".sim-wp")) { tip.style.opacity = 0; tip.dataset.activeWp = ""; }
+      });
+    }
   }
 
   function simDefaultAnimKey(destKey) {
@@ -735,6 +766,10 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
           <div class="desc">부산 출발 기준, 운하(수에즈/파나마) 경유 단축 루트와 희망봉·마젤란 해협 경유 우회 루트를 실좌표 기반으로 동시에 표시하고 실거리 비례 속도로 재생합니다.</div>
           <svg id="simMapSvg" class="simchart" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
           <div class="sim-tooltip" id="simTooltip"></div>
+          <div class="sim-legend">
+            <span><i class="dot" style="background:var(--accent)"></i>경유 해협·항구 (탭/마우스오버 시 이름 표시)</span>
+            <span><i class="dot" style="background:#ff8c1a"></i>운하 (수에즈/파나마)</span>
+          </div>
           <div class="timeline" id="simTimeline">
             <button id="simPlayBtn">▶ 재생</button>
             <button id="simPauseBtn">일시정지</button>
