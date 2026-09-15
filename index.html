@@ -428,6 +428,10 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   // ---------- TAB: voyage simulation (canal vs detour, waypoint-based, animated) ----------
   const SIM_DEST_GROUPS = {
     suez: { label: "수에즈 방면", direct: "suez_direct", detour: "suez_detour" },
+    cape: {
+      label: "희망봉 방면", direct: "suez_direct", detour: "suez_detour", defaultAnim: "detour",
+      title: "부산 → 로테르담 (희망봉 경유 vs 수에즈운하 비교)",
+    },
     panama: { label: "파나마 방면", direct: "panama_direct", detour: "panama_detour" },
   };
   let simActiveDest = "suez";
@@ -644,6 +648,11 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     });
   }
 
+  function simDefaultAnimKey(destKey) {
+    const g = SIM_DEST_GROUPS[destKey];
+    return g[g.defaultAnim || "direct"];
+  }
+
   function simRenderDestToggle() {
     document.getElementById("simDestToggle").innerHTML = Object.entries(SIM_DEST_GROUPS).map(([k, g]) =>
       `<button class="dest-btn" data-dest="${k}" data-active="${k === simActiveDest}">${g.label}</button>`
@@ -651,7 +660,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     document.querySelectorAll("#simDestToggle .dest-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         simActiveDest = btn.dataset.dest;
-        simAnimKey = SIM_DEST_GROUPS[simActiveDest].direct;
+        simAnimKey = simDefaultAnimKey(simActiveDest);
         simProgressFrac = 0; simPlaying = false;
         cancelAnimationFrame(simRafId);
         simResetZoom();
@@ -779,7 +788,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   function wireVoyageSim() {
     const playBtn = document.getElementById("simPlayBtn");
     if (!playBtn) return;
-    simAnimKey = SIM_DEST_GROUPS[simActiveDest].direct;
+    simAnimKey = simDefaultAnimKey(simActiveDest);
 
     document.getElementById("simChkDirect").addEventListener("change", (e) => { simShowDirect = e.target.checked; simRenderMap(); });
     document.getElementById("simChkDetour").addEventListener("change", (e) => { simShowDetour = e.target.checked; simRenderMap(); });
@@ -814,7 +823,8 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
 
   function simRenderAll() {
     const title = document.getElementById("simMapTitle");
-    if (title) title.textContent = `부산 → ${SIM_DEST_GROUPS[simActiveDest].label} 운하 경유 vs 우회 비교`;
+    const activeGroup = SIM_DEST_GROUPS[simActiveDest];
+    if (title) title.textContent = activeGroup.title || `부산 → ${activeGroup.label} 운하 경유 vs 우회 비교`;
     simRenderDestToggle();
     simRenderAnimSelect();
     simRenderStats();
