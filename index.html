@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ETA 관리 & 정시성 전략 콘솔</title>
 <style>
   :root {
@@ -17,13 +17,17 @@
     --accent: #0d8f95; --accent-dim: #0a6f74;
     --series-1: #0d8f95; --series-2: #c98500; --series-3: #4a3aa7; --series-4: #d03b3b;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--page); color: var(--text-primary);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    padding: 24px; display: flex; flex-direction: column; gap: 18px;
+  * { box-sizing: border-box; max-width: 100%; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; overflow-x: hidden; overscroll-behavior: none;
+    min-height: 100vh; min-height: calc(var(--vh, 1vh) * 100); min-height: 100dvh;
   }
-  .wrap { max-width: 1240px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 18px; }
+  body {
+    background: var(--page); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 18px; padding: 24px; }
   .crumb { font-size: 12px; color: var(--accent); letter-spacing: .04em; font-weight: 600; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   h1 { font-size: 26px; margin: 6px 0 6px; }
@@ -156,8 +160,7 @@
 
   /* ---------- mobile ---------- */
   @media (max-width: 640px) {
-    body { padding: 12px; gap: 12px; }
-    .wrap { gap: 12px; }
+    .wrap { padding: 12px; gap: 12px; }
     h1 { font-size: 20px; }
     .sub { font-size: 12px; max-width: none; }
     header { flex-direction: column; gap: 6px; }
@@ -201,7 +204,7 @@
     }
 
     body.map-active .crumb, body.map-active header, body.map-active footer { display: none; }
-    body.map-active .wrap { gap: 0; }
+    body.map-active .wrap { gap: 0; padding: 0; }
 
     .tabs {
       position: sticky; top: 0; z-index: 60; background: var(--page);
@@ -257,7 +260,7 @@
       max-height: var(--sheet-handle-h); overflow: hidden;
       transition: max-height .25s ease;
     }
-    .sim-sheet.open { max-height: 65dvh; }
+    .sim-sheet.open { max-height: calc(var(--vh, 1vh) * 65); max-height: 65dvh; }
     .sim-sheet-handle {
       display: flex; align-items: center; justify-content: space-between; width: 100%;
       min-height: var(--sheet-handle-h); padding: 0 18px; background: none; border: none;
@@ -267,6 +270,7 @@
     .sim-sheet.open .sim-sheet-caret { transform: rotate(180deg); }
     .sim-sheet-body {
       overflow-y: auto; -webkit-overflow-scrolling: touch;
+      max-height: calc((var(--vh, 1vh) * 65) - var(--sheet-handle-h));
       max-height: calc(65dvh - var(--sheet-handle-h));
       padding: 0 16px calc(16px + env(safe-area-inset-bottom));
     }
@@ -350,7 +354,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const x = i => padL + (i / (values.length - 1)) * innerW;
     const y = v => padT + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
 
-    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">`;
     // gridlines
     for (let g = 0; g <= 4; g++) {
       const gy = padT + (g / 4) * innerH;
@@ -719,7 +723,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         <div class="card map-wrap" id="simMapWrap">
           <h2 id="simMapTitle">운하 경유 vs 우회 비교</h2>
           <div class="desc">부산 출발 기준, 운하(수에즈/파나마) 경유 단축 루트와 희망봉·마젤란 해협 경유 우회 루트를 실좌표 기반으로 동시에 표시하고 실거리 비례 속도로 재생합니다.</div>
-          <svg id="simMapSvg" class="simchart" xmlns="http://www.w3.org/2000/svg"></svg>
+          <svg id="simMapSvg" class="simchart" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
           <div class="sim-tooltip" id="simTooltip"></div>
           <div class="timeline" id="simTimeline">
             <button id="simPlayBtn">▶ 재생</button>
@@ -1055,7 +1059,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const areaD = "M" + px(0) + "," + py(0) + " " + pts.map(([x, y]) => `L${px(x).toFixed(1)},${py(y).toFixed(1)}`).join(" ") + ` L${px(xMax).toFixed(1)},${py(0).toFixed(1)} Z`;
     const lineD = "M" + pts.map(([x, y]) => `${px(x).toFixed(1)},${py(y).toFixed(1)}`).join(" L");
     const medianX = px(median), reqX = px(reqBuffer);
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
       <path d="${areaD}" fill="var(--series-1)" opacity="0.18"/>
       <path d="${lineD}" fill="none" stroke="var(--series-1)" stroke-width="2"/>
       <line x1="${medianX}" y1="${padT}" x2="${medianX}" y2="${H - padB}" stroke="var(--text-secondary)" stroke-width="1.2" stroke-dasharray="3 3"/>
@@ -1125,7 +1129,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const maxV = Math.max(...values.filter(v => v != null), refLine || 0) * 1.15 || 1;
     const bw = innerW / values.length;
     const y0 = padT + innerH;
-    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">`;
     if (refLine) {
       const ry = padT + innerH - (refLine / maxV) * innerH;
       svg += `<line x1="${padL}" y1="${ry}" x2="${W - padR}" y2="${ry}" stroke="var(--critical)" stroke-width="1.2" stroke-dasharray="4 3"/>`;
@@ -1157,7 +1161,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const x = i => padL + (i / (e.months.length - 1)) * innerW;
     const y = v => padT + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
 
-    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">`;
     for (let g = 0; g <= 4; g++) {
       const gy = padT + (g / 4) * innerH;
       svg += `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" stroke="var(--grid)" stroke-width="1"/>`;
@@ -1494,6 +1498,26 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     wireSPC();
     wireVoyageSim();
   }
+
+  // real visible-viewport height, since mobile browsers (esp. Samsung Internet /
+  // Chrome on Galaxy devices) resolve 100vh against the layout viewport, not the
+  // actually visible one behind the address bar -- --vh is the true per-pixel value,
+  // used as a dvh fallback and reference for #simMapWrap max-height calcs above.
+  function setVhVar() {
+    document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+  }
+  setVhVar();
+  window.addEventListener("resize", () => {
+    setVhVar();
+    simRenderMap();
+  });
+  window.addEventListener("orientationchange", () => {
+    // layout/safe-area insets settle after the rotate animation on Android, so
+    // recompute once immediately and once more ~300ms later
+    setVhVar();
+    simRenderMap();
+    setTimeout(() => { setVhVar(); simRenderMap(); }, 300);
+  });
 
   renderAll();
 })();
