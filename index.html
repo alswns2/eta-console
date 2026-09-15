@@ -224,7 +224,6 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   const TABS = [
     { key: "overview", label: "개요" },
     { key: "map", label: "항로 지도" },
-    { key: "voyagesim", label: "운하 vs 우회 시뮬레이션" },
     { key: "model", label: "예측 모델" },
     { key: "buffer", label: "동적버퍼 시뮬레이터" },
     { key: "spc", label: "SPC 관리도" },
@@ -450,6 +449,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         </div>
         <div class="do-foot" style="margin-top:10px;">지도는 실제 AIS 경유점을 지리적 순서로 정렬해 구성했습니다 — 원본 AIS 핑은 항차 단위 연속 궤적이 아니라 경유점 반복 샘플링 구조라, 시간순 대신 지리적 순서 + 육지 회피 경로탐색(A*)으로 재구성했습니다. 해안선은 위경도 격자(20°) 표기 개략도입니다.</div>
       </div>
+      ${renderVoyageSim()}
       <div class="card">
         <h2>글로벌 병목 구간 모니터 (최신값)</h2>
         <div class="chokepoints">${shipChokepointsHTML()}</div>
@@ -765,7 +765,8 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     return `
       <div class="layout" style="display:grid; grid-template-columns:1fr 300px; gap:14px;">
         <div class="card map-wrap">
-          <h2 id="simMapTitle">항로 지도</h2>
+          <h2 id="simMapTitle">운하 경유 vs 우회 비교</h2>
+          <div class="desc">부산 출발 기준, 운하(수에즈/파나마) 경유 단축 루트와 희망봉·마젤란 해협 경유 우회 루트를 실좌표 기반으로 동시에 표시하고 실거리 비례 속도로 재생합니다.</div>
           <svg id="simMapSvg" class="simchart" xmlns="http://www.w3.org/2000/svg"></svg>
           <div class="sim-tooltip" id="simTooltip"></div>
           <div class="timeline">
@@ -827,7 +828,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
 
   function simRenderAll() {
     const title = document.getElementById("simMapTitle");
-    if (title) title.textContent = `부산 → ${SIM_DEST_GROUPS[simActiveDest].label} 항로 지도`;
+    if (title) title.textContent = `부산 → ${SIM_DEST_GROUPS[simActiveDest].label} 운하 경유 vs 우회 비교`;
     simRenderDestToggle();
     simRenderAnimSelect();
     simRenderStats();
@@ -1506,7 +1507,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   function renderAll() {
     renderTabs();
     const panels = {
-      overview: renderOverview, map: renderShipMap, voyagesim: renderVoyageSim, model: renderModel, buffer: renderBuffer,
+      overview: renderOverview, map: renderShipMap, model: renderModel, buffer: renderBuffer,
       spc: renderSPC, routecalc: renderRouteCalc, carrier: renderCarrier,
     };
     document.getElementById("panels").innerHTML = TABS.map(t =>
