@@ -482,6 +482,18 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
 
   function simClampScale(s) { return Math.min(6, Math.max(1, s)); }
 
+  // keep the panned/zoomed map content covering the visible frame -- without this, a 1-finger
+  // drag (or zooming out after panning) can push the whole map off to one side, leaving blank
+  // background showing past the map's edge instead of staying within the frame.
+  function simClampPan() {
+    const W = simLastProj ? simLastProj.W : 900;
+    const H = simLastProj ? simLastProj.H : 480;
+    const minTx = W * (1 - simZoom.scale), maxTx = 0;
+    const minTy = H * (1 - simZoom.scale), maxTy = 0;
+    simZoom.tx = Math.min(maxTx, Math.max(minTx, simZoom.tx));
+    simZoom.ty = Math.min(maxTy, Math.max(minTy, simZoom.ty));
+  }
+
   function simResetZoom() { simZoom = { scale: 1, tx: 0, ty: 0 }; }
 
   function simWireZoomPan() {
@@ -511,11 +523,13 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
         const dy = (e.clientY - simPanStart.y) / rect.height * simLastProj.H;
         simZoom.tx = simPanStart.tx + dx;
         simZoom.ty = simPanStart.ty + dy;
+        simClampPan();
         simRenderMap();
       } else if (simActivePointers.size === 2 && simPinchStartDist) {
         const pts = Array.from(simActivePointers.values());
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         simZoom.scale = simClampScale(simPinchStartScale * (dist / simPinchStartDist));
+        simClampPan();
         simRenderMap();
       }
     });
@@ -530,6 +544,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     svg.addEventListener("wheel", (e) => {
       e.preventDefault();
       simZoom.scale = simClampScale(simZoom.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+      simClampPan();
       simRenderMap();
     }, { passive: false });
   }
