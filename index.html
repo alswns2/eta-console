@@ -73,16 +73,6 @@
   .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
   .slider-row .val { width: 90px; text-align: right; font-size: 13px; font-weight: 600; color: var(--accent); flex: none; }
 
-  .route-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-  @media (max-width: 800px) { .route-cards { grid-template-columns: 1fr; } }
-  .route-card {
-    border: 1px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer;
-    background: var(--surface-2); transition: border-color .15s;
-  }
-  .route-card[data-selected="true"] { border-color: var(--accent); }
-  .route-card .rname { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-  .route-card .rrow { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin: 4px 0; }
-  .route-card .rrow b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
   .priority-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
   .priority-toggle button {
     flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
@@ -97,7 +87,6 @@
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
   .table-wrap table { min-width: 480px; }
 
-  svg.mapchart { width: 100%; height: auto; display: block; border-radius: 10px; }
   .timeline { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .timeline button {
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
@@ -105,12 +94,6 @@
   }
   .timeline input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
   .timeline .val { font-size: 12px; color: var(--text-secondary); width: 100px; text-align: right; flex: none; }
-  .leg-banner {
-    margin-top: 10px; font-size: 12px; padding: 8px 12px; border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text-primary);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .leg-banner .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
   .chokepoints { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   @media (max-width: 700px) { .chokepoints { grid-template-columns: 1fr; } }
   .chip { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 11px; background: var(--surface-2); }
@@ -192,7 +175,6 @@
     .slider-row .val { width: auto; margin-left: 8px; }
     .slider-row select, .slider-row input[type=number] { flex: 1 1 auto; min-width: 0; }
 
-    .route-cards { grid-template-columns: 1fr; }
     .grid2 { gap: 10px; }
 
     .table-wrap table { font-size: 11px; }
@@ -293,128 +275,7 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     return svg;
   }
 
-  // ---------- TAB: ship map (AIS-style route replay) ----------
-  const SHIP_ROUTE_META = {
-    suez: { label: "수에즈 경유", color: "var(--series-1)", eastbound: false,
-      marks: [{ name: "수에즈운하", lat: 29.97, lon: 32.55 }] },
-    cape: { label: "희망봉 우회", color: "var(--good)", eastbound: false,
-      marks: [{ name: "희망봉", lat: -34.35, lon: 18.47 }] },
-    panama: { label: "파나마 경유", color: "var(--series-2)", eastbound: true,
-      marks: [{ name: "파나마운하", lat: 9.08, lon: -79.68 }] },
-  };
-  let shipActiveRoute = "suez", shipDay = 0, shipPlaying = false, shipTimer = null;
-
-  function shipUnwrapLon(lon, eastbound) { return (eastbound && lon < 0) ? lon + 360 : lon; }
-
-  function shipProjFor(routeKey) {
-    const meta = SHIP_ROUTE_META[routeKey];
-    const traj = D.routes_map[routeKey].trajectory;
-    const lons = traj.map(p => shipUnwrapLon(p.lon, meta.eastbound));
-    const lats = traj.map(p => p.lat);
-    const pad = 8;
-    const lonMin = Math.min(...lons) - pad, lonMax = Math.max(...lons) + pad;
-    const latMin = Math.min(...lats) - pad, latMax = Math.max(...lats) + pad;
-    const W = 640, H = 380;
-    return {
-      W, H, lonMin, lonMax, latMin, latMax,
-      p(lon, lat) {
-        const lu = shipUnwrapLon(lon, meta.eastbound);
-        const x = (lu - lonMin) / (lonMax - lonMin) * W;
-        const y = (latMax - lat) / (latMax - latMin) * H;
-        return [x, y];
-      },
-    };
-  }
-
-  function shipInterpAtDay(traj, d) {
-    if (d <= traj[0].day) return traj[0];
-    for (let i = 0; i < traj.length - 1; i++) {
-      const a = traj[i], b = traj[i + 1];
-      if (d >= a.day && d <= b.day) {
-        const t = b.day === a.day ? 0 : (d - a.day) / (b.day - a.day);
-        return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
-      }
-    }
-    return traj[traj.length - 1];
-  }
-
-  function shipNearestIdx(traj, lat, lon) {
-    let best = 0, bd = Infinity;
-    traj.forEach((p, i) => {
-      const dd = (p.lat - lat) ** 2 + (p.lon - lon) ** 2;
-      if (dd < bd) { bd = dd; best = i; }
-    });
-    return best;
-  }
-
-  function shipLandPathD(proj, eastbound) {
-    let d = "";
-    WORLD_LAND.forEach(ring => {
-      const unwrapped = ring.map(([lon, lat]) => [shipUnwrapLon(lon, eastbound), lat]);
-      for (let i = 1; i < unwrapped.length; i++) {
-        if (Math.abs(unwrapped[i][0] - unwrapped[i - 1][0]) > 100) return; // antimeridian tear, skip ring
-      }
-      const lons = unwrapped.map(p => p[0]);
-      if (Math.max(...lons) < proj.lonMin - 5 || Math.min(...lons) > proj.lonMax + 5) return; // outside view
-      const pts = unwrapped.map(([lon, lat]) => proj.p(lon, lat));
-      d += "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "Z ";
-    });
-    return d;
-  }
-
-  function shipRenderMap() {
-    const meta = SHIP_ROUTE_META[shipActiveRoute];
-    const r = D.routes_map[shipActiveRoute];
-    const proj = shipProjFor(shipActiveRoute);
-    const mapEl = document.getElementById("shipMapSvg");
-    if (!mapEl) return;
-    mapEl.setAttribute("viewBox", `0 0 ${proj.W} ${proj.H}`);
-
-    let svg = `<rect x="0" y="0" width="${proj.W}" height="${proj.H}" fill="var(--surface-2)" rx="10"/>`;
-    svg += `<path d="${shipLandPathD(proj, meta.eastbound)}" fill="var(--page)" stroke="var(--border)" stroke-width="0.6" fill-rule="evenodd"/>`;
-
-    for (let lon = -180; lon <= 360; lon += 20) {
-      if (lon < proj.lonMin || lon > proj.lonMax) continue;
-      const [x1] = proj.p(lon, 90);
-      svg += `<line x1="${x1}" y1="0" x2="${x1}" y2="${proj.H}" stroke="var(--grid)" stroke-width="1"/>`;
-    }
-    for (let lat = -60; lat <= 80; lat += 20) {
-      if (lat < proj.latMin || lat > proj.latMax) continue;
-      const [, y1] = proj.p(0, lat);
-      svg += `<line x1="0" y1="${y1}" x2="${proj.W}" y2="${y1}" stroke="var(--grid)" stroke-width="1"/>`;
-      svg += `<text x="4" y="${y1 - 3}" font-size="9" fill="var(--text-muted)">${lat}°</text>`;
-    }
-
-    const d = r.trajectory.map((p, i) => {
-      const [x, y] = proj.p(p.lon, p.lat);
-      return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
-    }).join(" ");
-    svg += `<path d="${d}" fill="none" stroke="${meta.color}" stroke-width="2.2" stroke-linecap="round" opacity="0.85"/>`;
-
-    const start = r.trajectory[0], end = r.trajectory[r.trajectory.length - 1];
-    [[start, r.origin_port], [end, r.destination_port]].forEach(([p, name]) => {
-      const [x, y] = proj.p(p.lon, p.lat);
-      svg += `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--text-primary)"/>`;
-      svg += `<text x="${x + 6}" y="${y + 3}" font-size="10" font-weight="600" fill="var(--text-primary)">${name}</text>`;
-    });
-    meta.marks.forEach(m => {
-      const idx = shipNearestIdx(r.trajectory, m.lat, m.lon);
-      const p = r.trajectory[idx];
-      const [x, y] = proj.p(p.lon, p.lat);
-      svg += `<circle cx="${x}" cy="${y}" r="4" fill="var(--warning)"/>`;
-      svg += `<text x="${x + 6}" y="${y - 5}" font-size="10" fill="var(--text-secondary)">${m.name}</text>`;
-    });
-
-    const pos = shipInterpAtDay(r.trajectory, shipDay);
-    const [sx, sy] = proj.p(pos.lon, pos.lat);
-    svg += `<circle cx="${sx}" cy="${sy}" r="7" fill="none" stroke="${meta.color}" stroke-width="2" opacity="0.5"><animate attributeName="r" values="7;12;7" dur="2s" repeatCount="indefinite"/></circle>`;
-    svg += `<circle cx="${sx}" cy="${sy}" r="5" fill="${meta.color}" stroke="var(--surface-1)" stroke-width="1.5"/>`;
-
-    mapEl.innerHTML = svg;
-    const legText = document.getElementById("shipLegText");
-    if (legText) legText.textContent = `Day ${shipDay.toFixed(1)} / ${r.total_days}일 · ${r.origin_port} → ${r.destination_port} (${meta.label})`;
-  }
-
+  // ---------- TAB: route map (chokepoint monitor helper) ----------
   function shipChokepointsHTML() {
     const c = D.chokepoints;
     const stormTotal = Object.values(c.storm_recent_14d).reduce((a, b) => a + b, 0);
@@ -433,98 +294,13 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
   }
 
   function renderShipMap() {
-    const routes = ["suez", "cape", "panama"];
     return `
-      <div class="card">
-        <h2>항로 &amp; 대표 경로 리플레이</h2>
-        <div class="desc">실제 AIS 좌표(항로별 약 51개 특징 경유점, 해상 항로만 지나도록 재보정)를 기반으로 예측 기간별 선박 위치를 재생합니다.</div>
-        <div class="route-cards" id="shipRouteToggle"></div>
-        <div class="stat-row" id="shipRouteStats" style="margin:12px 0;"></div>
-        <svg id="shipMapSvg" class="mapchart" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="leg-banner"><span class="dot"></span><span id="shipLegText">-</span></div>
-        <div class="timeline">
-          <button id="shipPlayBtn">▶ 재생</button>
-          <input type="range" id="shipDaySlider" min="0" max="26" value="0" step="0.5" />
-          <div class="val" id="shipDayLabel">Day 0</div>
-        </div>
-        <div class="do-foot" style="margin-top:10px;">지도는 실제 AIS 경유점을 지리적 순서로 정렬해 구성했습니다 — 원본 AIS 핑은 항차 단위 연속 궤적이 아니라 경유점 반복 샘플링 구조라, 시간순 대신 지리적 순서 + 육지 회피 경로탐색(A*)으로 재구성했습니다. 해안선은 위경도 격자(20°) 표기 개략도입니다.</div>
-      </div>
       ${renderVoyageSim()}
       <div class="card">
         <h2>글로벌 병목 구간 모니터 (최신값)</h2>
         <div class="chokepoints">${shipChokepointsHTML()}</div>
       </div>
     `;
-  }
-
-  function shipRenderRouteToggle() {
-    const el = document.getElementById("shipRouteToggle");
-    if (!el) return;
-    el.innerHTML = Object.entries(SHIP_ROUTE_META).map(([key, meta]) => {
-      const r = D.routes_map[key];
-      return `<div class="route-card" data-selected="${key === shipActiveRoute}" data-route="${key}">
-        <div class="rname"><i class="swatch" style="background:${meta.color}"></i>${meta.label}</div>
-        <div class="rrow"><span>구간</span><b>${r.origin_port} → ${r.destination_port}</b></div>
-        <div class="rrow"><span>표준 항해일</span><b>${r.total_days}일</b></div>
-        <div class="rrow"><span>표본 항차</span><b>${r.n_voyages.toLocaleString()}건</b></div>
-      </div>`;
-    }).join("");
-    el.querySelectorAll(".route-card").forEach(card => {
-      card.addEventListener("click", () => {
-        shipActiveRoute = card.dataset.route;
-        shipDay = 0;
-        const slider = document.getElementById("shipDaySlider");
-        slider.max = D.routes_map[shipActiveRoute].total_days;
-        slider.value = 0;
-        document.getElementById("shipDayLabel").textContent = "Day 0";
-        shipRenderRouteToggle();
-        shipRenderRouteStats();
-        shipRenderMap();
-      });
-    });
-  }
-
-  function shipRenderRouteStats() {
-    const r = D.routes_map[shipActiveRoute];
-    document.getElementById("shipRouteStats").innerHTML = `
-      <div class="stat-tile"><div class="value">${r.median_delay_hours}h</div><div class="label">중앙값 지연</div></div>
-      <div class="stat-tile"><div class="value">${r.avg_delay_hours}h</div><div class="label">평균 지연</div></div>
-      <div class="stat-tile"><div class="value">${r.total_days}일</div><div class="label">표준 항해일</div></div>
-      <div class="stat-tile"><div class="value">${r.n_voyages.toLocaleString()}</div><div class="label">표본 항차 수</div></div>
-    `;
-  }
-
-  function wireShipMap() {
-    const slider = document.getElementById("shipDaySlider");
-    if (!slider) return;
-    const dayLabel = document.getElementById("shipDayLabel");
-    const playBtn = document.getElementById("shipPlayBtn");
-
-    slider.addEventListener("input", () => {
-      shipDay = Number(slider.value);
-      dayLabel.textContent = "Day " + shipDay.toFixed(1);
-      shipRenderMap();
-    });
-    playBtn.addEventListener("click", () => {
-      shipPlaying = !shipPlaying;
-      playBtn.textContent = shipPlaying ? "❚❚ 정지" : "▶ 재생";
-      if (shipPlaying) {
-        shipTimer = setInterval(() => {
-          const max = Number(slider.max);
-          shipDay = shipDay >= max ? 0 : Math.min(max, shipDay + max / 60);
-          slider.value = shipDay;
-          dayLabel.textContent = "Day " + shipDay.toFixed(1);
-          shipRenderMap();
-        }, 200);
-      } else {
-        clearInterval(shipTimer);
-      }
-    });
-
-    slider.max = D.routes_map[shipActiveRoute].total_days;
-    shipRenderRouteToggle();
-    shipRenderRouteStats();
-    shipRenderMap();
   }
 
   // ---------- TAB: voyage simulation (canal vs detour, waypoint-based, animated) ----------
@@ -1516,7 +1292,6 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     wireBuffer();
     wireRouteCalc();
     wireSPC();
-    wireShipMap();
     wireVoyageSim();
   }
 
