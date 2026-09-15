@@ -208,7 +208,7 @@
     :root {
       --mobile-topbar-h: 44px;
       --mobile-desttab-h: 52px;
-      --mobile-ctrlbar-h: 64px;
+      --mobile-ctrlbar-h: 88px;
       --mobile-animbar-h: 40px;
       --sheet-handle-h: 52px;
     }
@@ -250,12 +250,15 @@
     #simTimeline {
       position: fixed; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px);
       bottom: env(safe-area-inset-bottom, 0px); z-index: 40;
-      height: var(--mobile-ctrlbar-h); margin: 0; gap: 8px; flex-wrap: nowrap;
+      min-height: var(--mobile-ctrlbar-h); margin: 0; gap: 6px 8px; flex-wrap: wrap; align-content: center;
       background: var(--surface-1); border-top: 1px solid var(--border);
       padding: 8px 12px;
     }
-    #simTimeline button { min-width: 44px; min-height: 44px; font-size: 14px; }
-    #simTimeline .sim-progress-label { font-size: 13px; min-width: 0; flex: 1; }
+    #simTimeline button { min-width: 44px; min-height: 44px; font-size: 14px; flex: none; }
+    #simTimeline .sim-progress-track { flex: 1 1 auto; min-width: 60px; }
+    /* the label text ("Day 0.0 / 22.4일 · 0% · 잔여 22.4일") is too long to share a row with the
+       3 buttons + progress track on a narrow phone -- flex-basis:100% forces it onto its own row */
+    #simTimeline .sim-progress-label { font-size: 13px; min-width: 0; flex: 1 1 100%; text-align: center; }
 
     #simAnimSelect {
       position: fixed; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); z-index: 39;
@@ -573,21 +576,21 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     let d = "";
     WORLD_LAND.forEach(ring => {
       const unwrapped = ring.map(([lon, lat]) => [simUnwrapLon(lon, proj.eastbound), lat]);
-      for (let i = 1; i < unwrapped.length; i++) {
-        // a ring is only a genuine antimeridian tear if BOTH the raw (-180..180) jump AND the
-        // eastbound-unwrapped jump are large -- unwrapping shifts any negative longitude by +360,
-        // so a ring that merely passes near the Prime Meridian (e.g. a small raw jump like
-        // 0.1 -> -0.28 near France) gets a false ~360 deg jump after unwrapping and must NOT be
-        // treated as a tear, or entire continents (Eurasia/Africa, containing Korea/Busan) get
-        // silently dropped from eastbound (Panama-direction) map renders.
-        const rawJump = Math.abs(ring[i][0] - ring[i - 1][0]);
-        const unwrappedJump = Math.abs(unwrapped[i][0] - unwrapped[i - 1][0]);
-        if (rawJump > 100 && unwrappedJump > 100) return;
-      }
       const lons = unwrapped.map(p => p[0]);
-      if (Math.max(...lons) < proj.lonMin - 5 || Math.min(...lons) > proj.lonMax + 5) return;
-      const pts = unwrapped.map(([lon, lat]) => proj.p(lon, lat));
-      d += "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "Z ";
+      if (Math.max(...lons) < proj.lonMin - 5 || Math.min(...lons) > proj.lonMax + 5) return; // whole ring outside view
+      // Don't skip the whole ring on a large jump, and don't connect it with a straight line
+      // either -- a ring that merely passes near the Prime Meridian (e.g. a small real jump like
+      // 0.1 -> -0.28 near France) gets shifted to a false ~360 deg jump after eastbound-unwrapping.
+      // Skipping the whole ring drops entire continents (Eurasia/Africa, containing Korea/Busan);
+      // connecting it with "L" instead draws a spurious line slashing across the whole map. The
+      // correct fix is to just break the path (moveto) at that one point -- SVG fills open
+      // subpaths as if closed, so splitting a ring into pieces here is harmless.
+      unwrapped.forEach(([lon, lat], i) => {
+        const breakHere = i > 0 && Math.abs(unwrapped[i][0] - unwrapped[i - 1][0]) > 100;
+        const [x, y] = proj.p(lon, lat);
+        d += (i === 0 || breakHere ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
+      });
+      d += "Z ";
     });
     return d;
   }
