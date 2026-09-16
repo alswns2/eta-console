@@ -512,13 +512,51 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     simClampPan();
   }
 
+  let simPointerRafPending = false;
+
+  function simSchedulePointerUpdate() {
+    if (simPointerRafPending) return;
+    simPointerRafPending = true;
+    requestAnimationFrame(() => {
+      simPointerRafPending = false;
+      simProcessPointerState();
+    });
+  }
+
+  function simProcessPointerState() {
+    if (!simLastProj) return;
+    const svg = document.getElementById("simMapSvg");
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    if (simActivePointers.size === 1 && simPanStart) {
+      const [pt] = simActivePointers.values();
+      const dx = (pt.x - simPanStart.x) / rect.width * simLastProj.W;
+      const dy = (pt.y - simPanStart.y) / rect.height * simLastProj.H;
+      simZoom.tx = simPanStart.tx + dx;
+      simZoom.ty = simPanStart.ty + dy;
+      simClampPan();
+      simRenderMap();
+    } else if (simActivePointers.size === 2 && simPinchStartDist) {
+      const pts = Array.from(simActivePointers.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const midX = (pts[0].x + pts[1].x) / 2, midY = (pts[0].y + pts[1].y) / 2;
+      const svgX = (midX - rect.left) / rect.width * simLastProj.W;
+      const svgY = (midY - rect.top) / rect.height * simLastProj.H;
+      simZoomAt(svgX, svgY, simPinchStartScale * (dist / simPinchStartDist));
+      simRenderMap();
+    }
+  }
+
   function simWireZoomPan() {
     const svg = document.getElementById("simMapSvg");
     if (!svg || svg.dataset.zoomWired) return;
     svg.dataset.zoomWired = "1";
 
     svg.addEventListener("pointerdown", (e) => {
-      svg.setPointerCapture(e.pointerId);
+      // setPointerCapture can throw on some browsers/pointer types (seen with synthetic and some
+      // SVG-targeted pointer events) -- an uncaught throw here would abort the rest of this
+      // handler and silently break pinch/pan state setup for the whole gesture
+      try { svg.setPointerCapture(e.pointerId); } catch (err) {}
       simActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (simActivePointers.size === 1) {
         simPanStart = { x: e.clientX, y: e.clientY, tx: simZoom.tx, ty: simZoom.ty };
@@ -532,24 +570,13 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     svg.addEventListener("pointermove", (e) => {
       if (!simActivePointers.has(e.pointerId)) return;
       simActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (!simLastProj) return;
-      const rect = svg.getBoundingClientRect();
-      if (simActivePointers.size === 1 && simPanStart) {
-        const dx = (e.clientX - simPanStart.x) / rect.width * simLastProj.W;
-        const dy = (e.clientY - simPanStart.y) / rect.height * simLastProj.H;
-        simZoom.tx = simPanStart.tx + dx;
-        simZoom.ty = simPanStart.ty + dy;
-        simClampPan();
-        simRenderMap();
-      } else if (simActivePointers.size === 2 && simPinchStartDist) {
-        const pts = Array.from(simActivePointers.values());
-        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-        const midX = (pts[0].x + pts[1].x) / 2, midY = (pts[0].y + pts[1].y) / 2;
-        const svgX = (midX - rect.left) / rect.width * simLastProj.W;
-        const svgY = (midY - rect.top) / rect.height * simLastProj.H;
-        simZoomAt(svgX, svgY, simPinchStartScale * (dist / simPinchStartDist));
-        simRenderMap();
-      }
+      // Two-finger pinches deliver a separate pointermove per finger, not one combined event.
+      // Recalculating immediately on each one uses a stale position for the *other* finger,
+      // producing a skewed midpoint/distance every other event; those small errors compound
+      // over a real gesture (many events) into a large directional drift, which is what made
+      // zooming always seem to end up pulled toward one fixed spot on the map. Batch both
+      // fingers' updates into a single recompute per animation frame instead.
+      simSchedulePointerUpdate();
     });
     const endPointer = (e) => {
       simActivePointers.delete(e.pointerId);
