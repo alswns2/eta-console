@@ -692,7 +692,14 @@ const WORLD_LAND = [[[-59.57,-80.04],[-59.87,-80.55],[-60.16,-81.0],[-62.26,-80.
     const a = points[i - 1], b = points[i];
     const segLen = cum[i] - cum[i - 1];
     const t = segLen > 0 ? (targetDist - cum[i - 1]) / segLen : 0;
-    return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t, segIndex: i - 1, segT: t };
+    // interpolate longitude the short way around the antimeridian, not a raw straight-line lerp
+    // -- on long Pacific-crossing legs (e.g. 175 -> -140), a raw lerp sends the ship backwards
+    // through 0 deg longitude (the wrong way around the globe) before "snapping back" onto the
+    // real path once past that segment, which is exactly the sudden-deviation-then-return glitch.
+    let bLon = b.lon;
+    if (bLon - a.lon > 180) bLon -= 360;
+    else if (bLon - a.lon < -180) bLon += 360;
+    return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (bLon - a.lon) * t, segIndex: i - 1, segT: t };
   }
 
   function simLabelWidth(text, fontSize) {
