@@ -36,6 +36,9 @@
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   h1 { font-size: 26px; margin: 6px 0 6px; }
   .sub { font-size: 13px; color: var(--text-secondary); max-width: 640px; line-height: 1.6; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .header-qr { width: 74px; height: 74px; padding: 5px; background: #fff; border-radius: 8px; display: block; }
+  .header-qr-label { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 3px; }
   .route-info { text-align: right; font-size: 12px; color: var(--text-secondary); line-height: 1.9; }
   .route-info b { color: var(--text-primary); }
 
@@ -174,6 +177,7 @@
     h1 { font-size: 20px; }
     .sub { font-size: 12px; max-width: none; }
     header { flex-direction: column; gap: 6px; }
+    .header-right { align-items: flex-start; flex-direction: row-reverse; justify-content: flex-end; width: 100%; }
     .route-info { text-align: left; line-height: 1.6; }
 
     .stat-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -323,7 +327,13 @@
       <h1>ETA 관리 &amp; 정시성 전략 콘솔</h1>
       <div class="sub">예측모델(정적/Dynamic ETA) · SPC 관리도 · 동적버퍼 시뮬레이터 · 항로 대안 계산기를 하나로 묶은 의사결정 지원 도구 — 실제 운항 데이터 기반</div>
     </div>
-    <div class="route-info" id="routeInfo"></div>
+    <div class="header-right">
+      <div>
+        <img class="header-qr" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAV4AAAFeAQAAAADlUEq3AAACUElEQVR4nO2bTW7bMBCFvykJdEkDPUCOIt+gR8rVxKP4AAXkZQAJrwv+WHI2qdMYLDqzkC3pWzxgMCTfkDLx4di+fZwFhx122OH/AUbS2v6n9d3tvOcG0ezwe1iSpJkgOwNMkpguEUhSz+pQmh0uEctPPoMABEFkCysQVmCLkH59sQyHH4bj4W6Lyj8XbNJmyi/rHTyIZof3Ee8fTMsWlQ2M9DwZDn8WnqRqDLNFmLSi+RoBgqTlSTIcfhQ2MzM7A5BWyCeA9GZwNTOz+BQZDj8ARyD0vsxGuw0qo+i079kMotnhQ0iqLrB4v2kBIIhpaamdKjKIZocPcbOCLWVB1ccnyR398HCrwQUolVfce5DmZub7ZRDNDh9CklSbMFrZXUj9xeI1OCwcgS2K6wmyBZHt9nKLcP2ximtYv1aGww/DbR5MKrbv0NmWDpzX4IjwbhTVnFaYlmrhNSep2MO2aTGIZocPsVvJ9MbMLXlST6hncEy41eByy5uKpWjV2C+ewSHhXoMtUTPHURTwtejIcF3JlJ7Mbjc3tCmwOEOfB4eFDz0ZqRRinRFT9Yg+D44MV/tQtpNKqan216buK7wvOjDcR9E2gN4WpN0eeldtZPj+cFp91rYlikd0Pzgw3AusNWbmVMfTvgLF3cQ/AGczAzaz18t32bnt+ppZxM7PkuHwn8PHk05Blk8BcTWUX25t0TfTl8pw+O/CdibIXi+1/PyczMjw/TxYHpbd+p25cD84ONzOqm22O3cIQD5tRjsMNZRmh0uYfz/osMMOO/wJ+DeKNg/JpXK8+AAAAABJRU5ErkJggg==" alt="접속 QR코드" />
+        <div class="header-qr-label">모바일로 열기</div>
+      </div>
+      <div class="route-info" id="routeInfo"></div>
+    </div>
   </header>
 
   <div class="tabs" id="tabs"></div>
